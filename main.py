@@ -11,7 +11,6 @@ from sklearn.metrics import make_scorer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.preprocessing import normalize
 import plotly.express as px
-import matplotlib.pyplot as plt
 
 import hdbscan
 
@@ -27,21 +26,29 @@ tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
 syms = os.listdir(root)
 
+def read_file(file: str) -> str:
+  with open(f"{root}/{file}", "r") as f:
+    return f.read()
+
+descrips = np.array([ read_file(file) for file in syms ])
+
 def read_or_calc(file:str) -> np.ndarray:
   stf = f"{tensors}/{file}.safetensors"
   if os.path.exists(stf): return load_file(stf)["embedding"]
   else:
-    with open(f"{root}/{file}", "r") as f:
-      print(file)
-      data = np.mean(model.encode(tokenizer.tokenize(f.read())), axis=0)
-      save_file({"embedding" : data}, stf)
-      return data
+    print(file)
+    data = np.mean(model.encode(tokenizer.tokenize(read_file(file))), axis=0)
+    save_file({"embedding" : data}, stf)
+    return data
 
 embeddings = np.array([ read_or_calc(file) for file in syms ])
 
-def read_file(file: str) -> str:
-  with open(f"{root}/{file}", "r") as f:
-    return f.read()
+print("embeddings loaded")
+embeddings = normalize(embeddings, norm='l2')
+
+reducer = umap.UMAP(metric="manhattan")
+
+embeddings = reducer.fit_transform(embeddings)
 
 def filter_noise_by(descrips, data):
   return np.array([x[0] for x in zip(data, descrips) if "does not have significant operations" not in x[1]])
@@ -52,24 +59,14 @@ def cleaned_data(descrips, syms, embeds):
   syms = filter_noise_by(descrips, syms)
   return descrips, syms, embeds
 
+descrips, syms, embeddings = cleaned_data(descrips, syms, embeddings)
+
 def wrap_text(r):
   acc = []
   while r != "":
     acc.append(r[:120])
     r = r[120:]
   return "<br>".join(acc)
-
-descrips = np.array([ read_file(file) for file in syms ])
-
-
-print("embeddings loaded")
-embeddings = normalize(embeddings, norm='l2')
-
-reducer = umap.UMAP(metric="manhattan")
-
-embeddings = reducer.fit_transform(embeddings)
-
-descrips, syms, embeddings = cleaned_data(descrips, syms, embeddings)
 
 descrips = [ wrap_text(r) for r in descrips ]
 
