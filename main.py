@@ -52,7 +52,7 @@ def cleaned_data(descrips, syms, embeds):
 
 embeddings = np.array([ read_or_calc(file) for file in syms ])
 
-#descrips, syms, embeddings = cleaned_data(descrips, syms, embeddings)
+descrips, syms, embeddings = cleaned_data(descrips, syms, embeddings)
 
 print("embeddings loaded")
 embeddings = normalize(embeddings, norm='l2')
