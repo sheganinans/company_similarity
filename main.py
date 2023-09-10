@@ -6,17 +6,12 @@ import os
 import nltk
 import numpy as np
 import pandas as pd
-from safetensors.numpy import save_file, load_file
-from sklearn.metrics import make_scorer
-from sklearn.model_selection import RandomizedSearchCV
-from sklearn.preprocessing import normalize
 import plotly.express as px
-
-import hdbscan
-
+from safetensors.numpy import save_file, load_file
+from sentence_transformers import SentenceTransformer
+from sklearn.cluster import SpectralClustering
+from sklearn.preprocessing import normalize
 import umap
-
-from sentence_transformers import SentenceTransformer, util
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -66,46 +61,9 @@ def wrap_text(r):
 
 descrips = [ wrap_text(r) for r in descrips ]
 
-def run_param_search():
-  logging.captureWarnings(True)
-  hdb = hdbscan.HDBSCAN(gen_min_span_tree=True).fit(embeddings)
+clusters = SpectralClustering(n_clusters=150, n_jobs=-1).fit_predict(embeddings)
 
-  # specify parameters and distributions to sample from
-  param_dist = {'min_samples': [3,5,10,15],
-                'min_cluster_size':[3,5,10,15],
-                'cluster_selection_method' : ['leaf', "eom"],
-                'cluster_selection_epsilon' : [0.02,0.0225,0.025,0.0275,0.03],
-                'metric' : ['manhattan', "euclidean"]
-              }
-
-  validity_scorer = make_scorer(hdbscan.validity.validity_index,greater_is_better=True)
-
-  n_iter_search = 40
-  random_search = RandomizedSearchCV(hdb
-                                    ,param_distributions=param_dist
-                                    ,n_iter=n_iter_search
-                                    ,scoring=validity_scorer
-                                    ,random_state=0x1337)
-
-  random_search.fit(embeddings)
-  print(f"Best Parameters {best}")
-  print(f"DBCV score :{random_search.best_estimator_.relative_validity_}")
-
-#run_param_search()
-
-#best = random_search.best_params_
-best = {'min_samples': 3, 'min_cluster_size': 3, 'metric': 'manhattan', 'cluster_selection_method': 'eom', 'cluster_selection_epsilon': 0.0275}
-
-clusters = hdbscan.HDBSCAN(
-  min_cluster_size=best["min_cluster_size"],
-  min_samples=best["min_samples"],
-  cluster_selection_method=best["cluster_selection_method"],
-  cluster_selection_epsilon=best["cluster_selection_epsilon"],
-  metric=best["metric"]).fit_predict(embeddings)
-
-reducer = umap.UMAP(metric="manhattan")
-
-embeddings = reducer.fit_transform(embeddings)
+embeddings = umap.UMAP(metric="manhattan").fit_transform(embeddings)
 
 addtl_info = {"sym": syms, "cluster": clusters, "descrip": descrips}
 fig = px.scatter(
