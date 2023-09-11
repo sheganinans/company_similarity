@@ -5,7 +5,6 @@ bert, clustering, and umap for fun
 
 ---
 
-https://sheganinans.github.io/company_similarity/charts/spectral_150.html
 
 [Kepler Map](https://sheganinans.github.io/company_similarity/charts/n150_o0.50_eps720.000_pp50.html)
 
