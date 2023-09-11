@@ -3,6 +3,8 @@ bert, clustering, and umap for fun
 
 ## Check it out here
 
+https://sheganinans.github.io/company_similarity/
+
 ---
 
 [Kepler Map](https://sheganinans.github.io/company_similarity/charts/n150_o0.50_eps720.000_pp50.html)
