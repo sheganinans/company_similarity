@@ -5,8 +5,9 @@ bert, clustering, and umap for fun
 
 ---
 
-
 [Kepler Map](https://sheganinans.github.io/company_similarity/charts/n150_o0.50_eps720.000_pp50.html)
+
+---
 
 [KMeans 5](https://sheganinans.github.io/company_similarity/charts/kmeans_5.html)
 
