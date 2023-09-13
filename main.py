@@ -1,4 +1,7 @@
+from collections import defaultdict
+import json
 import logging
+from sklearn.metrics import silhouette_score
 
 from sklearn.neighbors import NearestNeighbors
 logging.captureWarnings(True)
@@ -16,7 +19,7 @@ from sklearn.cluster import KMeans, SpectralClustering, DBSCAN
 from sklearn.preprocessing import normalize
 import umap
 import kmapper as km
-from sklearn.manifold import TSNE
+from kneed import KneeLocator
 
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -73,13 +76,39 @@ proj = umap.UMAP(metric="manhattan").fit_transform(embeddings)
 
 print("generating viz")
 
-for n in [5,10,25,50,75,100,150,200,250]:
+sse = []
+silhouette_coefficients_k = []
+silhouette_coefficients_s = []
+
+ns = [5,10,25,40,45,50,55,60,65,70,75,100,150,200,250]
+
+for n in ns:
   print(n)
-  clusters_kmeans = KMeans(n_clusters=n).fit_predict(embeddings)
+  kmeans = KMeans(n_clusters=n).fit(embeddings)
+  spectral = SpectralClustering(n_clusters=n).fit(embeddings)
+
+  sse.append(kmeans.inertia_)
+
+  score = silhouette_score(embeddings, kmeans.labels_, metric="manhattan")
+  silhouette_coefficients_k.append(score)
+
+  score = silhouette_score(embeddings, spectral.labels_, metric="manhattan")
+  silhouette_coefficients_s.append(score)
+
+  clusters_kmeans = kmeans.predict(embeddings)
   clusters_spectral = SpectralClustering(n_clusters=n).fit_predict(embeddings)
 
-  def gen(name:str, clusters: np.ndarray):
-    addtl_info = {"sym": syms, "cluster": clusters, "descrip": descrips}
+  acc_k = defaultdict(list)
+  acc_s = defaultdict(list)
+
+  for c, sym in zip(clusters_kmeans, syms): acc_k[int(c)].append(sym)
+  for c, sym in zip(clusters_spectral, syms): acc_s[int(c)].append(sym)
+
+  with open(f"./clusters/kmeans_{n}.json", "w") as f_k: f_k.write(json.dumps(acc_k))
+  with open(f"./clusters/spectral_{n}.json", "w") as f_s: f_s.write(json.dumps(acc_s))
+
+  def gen(name: str, clusters: np.ndarray):
+    addtl_info = {"sym": syms, "cluster": clusters, "d": descrips}
     fig = px.scatter(
       pd.DataFrame({
         "x": proj[:, 0],
@@ -90,15 +119,39 @@ for n in [5,10,25,50,75,100,150,200,250]:
       y="y",
       color="cluster",
       hover_name="sym",
-      hover_data="descrip"
+      hover_data="d"
     )
 
     fig.write_html(f"./charts/{name}_{n}.html")
-    fig.write_json(f"./charts/{name}_{n}.json")
     fig.show()
 
   gen("kmeans", clusters_kmeans)
   gen("spectral", clusters_spectral)
+
+plt.plot(ns, sse)
+plt.xticks(ns)
+plt.xlabel("Number of Clusters")
+plt.ylabel("SSE")
+plt.savefig(fname="./charts/sse.png")
+plt.show()
+
+kl = KneeLocator(ns, sse, curve="convex", direction="decreasing")
+
+print("elbow:", kl.elbow)
+
+plt.plot(ns, silhouette_coefficients_k)
+plt.xticks(ns)
+plt.xlabel("Number of Clusters")
+plt.ylabel("Silhouette Coefficient")
+plt.savefig(fname="./charts/sc_k.png")
+plt.show()
+
+plt.plot(ns, silhouette_coefficients_s)
+plt.xticks(ns)
+plt.xlabel("Number of Clusters")
+plt.ylabel("Silhouette Coefficient")
+plt.savefig(fname="./charts/sc_s.png")
+plt.show()
 
 print("running hdbscan")
 
@@ -170,7 +223,7 @@ def run_knn():
   nbrs = NearestNeighbors(n_neighbors=2, metric="manhattan", n_jobs=-1).fit(embeddings)
   ds, _ = nbrs.kneighbors(embeddings)
   plt.plot(np.sort(ds, axis=0)[:, 1])
-  plt.savefig(fname="./knn.png")
+  plt.savefig(fname="./charts/knn.png")
   plt.show()
 
 #run_knn()
@@ -195,4 +248,4 @@ def run_kmap(n=150, o=.5, eps=720, pp=30):
     custom_tooltips=descrips,
     include_searchbar=True)
 
-run_kmap()
+#run_kmap()
